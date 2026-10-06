@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-cream text-main font-sans antialiased;
+    font-feature-settings: 'tnum' 0;
+  }
+  ::selection {
+    @apply bg-matcha-200 text-main;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-matcha/60 ring-offset-2 ring-offset-cream;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl bg-card border border-stone-200/60 shadow-soft;
+  }
+  .card-soft {
+    @apply rounded-3xl bg-cream-deep/60 border border-stone-200/50;
+  }
+  .label {
+    @apply block text-sm font-semibold text-main-soft mb-1.5;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-stone-200 bg-card px-4 py-2.5 text-main placeholder:text-main-muted
+      transition-all duration-300 ease-in-out focus:border-matcha focus:ring-4 focus:ring-matcha/15 focus:outline-none;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .kbd {
+    @apply inline-flex min-w-[1.5rem] items-center justify-center rounded-lg border border-stone-200 bg-card px-1.5 py-0.5
+      text-[11px] font-bold text-main-muted shadow-sm;
+  }
+  .scroll-soft {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.stone.300') transparent;
+  }
+}
+
+/* Transiciones de vista */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 250ms ease, transform 250ms ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+}
