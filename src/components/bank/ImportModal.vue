@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { AlertTriangle, ClipboardPaste, FileJson, FileText, UploadCloud } from 'lucide-vue-next'
+import { AlertTriangle, ClipboardPaste, FileJson, FileText, Link2, UploadCloud } from 'lucide-vue-next'
 import type { QuestionBank } from '@/types/exam'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BasePill from '@/components/ui/BasePill.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
-import { useStorage } from '@/composables/useStorage'
+import { readLocal, useStorage, writeLocal } from '@/composables/useStorage'
 import { useToast } from '@/composables/useToast'
 import { JSON_EXAMPLE, MARKDOWN_EXAMPLE, parseBankText, type ParsedBank } from '@/utils/importers'
 import { uid } from '@/utils/id'
 import { NO_TOPIC } from '@/utils/sessionBuilder'
 import { FIELD_LABELS } from '@/utils/criteriaParser'
 import { formatNumber } from '@/utils/format'
+import { fetchBankText } from '@/utils/remoteSource'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: []; saved: [bank: QuestionBank] }>()
@@ -20,7 +21,7 @@ const emit = defineEmits<{ close: []; saved: [bank: QuestionBank] }>()
 const storage = useStorage()
 const toast = useToast()
 
-const tab = ref<'file' | 'paste'>('file')
+const tab = ref<'file' | 'link' | 'paste'>('file')
 const text = ref('')
 const fileName = ref('')
 const parsed = ref<ParsedBank | null>(null)
@@ -32,6 +33,8 @@ const description = ref('')
 const target = ref<string>('new')
 const saving = ref(false)
 const showFormat = ref<'json' | 'md' | null>(null)
+const linkUrl = ref('')
+const loadingLink = ref(false)
 
 watch(
   () => props.open,
@@ -45,6 +48,7 @@ watch(
     subject.value = ''
     description.value = ''
     target.value = 'new'
+    linkUrl.value = readLocal('import-url', '')
   },
 )
 
@@ -77,6 +81,25 @@ async function loadFile(file: File) {
   }
   fileName.value = file.name
   parse(await file.text(), file.name)
+}
+
+/** Carga el banco desde un enlace (Gist secreto, Raw de GitHub…) sin guardar archivos en el disco */
+async function loadLink() {
+  const url = linkUrl.value.trim()
+  if (!url) return
+  loadingLink.value = true
+  error.value = ''
+  parsed.value = null
+  try {
+    const { text: content, filename } = await fetchBankText(url)
+    fileName.value = filename
+    parse(content, filename)
+    if (parsed.value) writeLocal('import-url', url)
+  } catch (e) {
+    error.value = (e as Error).message
+  } finally {
+    loadingLink.value = false
+  }
 }
 
 function onDrop(e: DragEvent) {
@@ -138,6 +161,7 @@ async function save() {
 
 const tabs = [
   { value: 'file' as const, label: 'Subir archivo', icon: UploadCloud },
+  { value: 'link' as const, label: 'Desde enlace', icon: Link2 },
   { value: 'paste' as const, label: 'Pegar texto', icon: ClipboardPaste },
 ]
 </script>
@@ -164,6 +188,27 @@ const tabs = [
         <span class="text-sm text-main-muted">.json, .md o .txt</span>
         <input type="file" accept=".json,.md,.markdown,.txt,application/json,text/markdown,text/plain" class="sr-only" @change="onPick" />
       </label>
+
+      <div v-else-if="tab === 'link'" class="space-y-3 rounded-3xl bg-cream/60 p-4 sm:p-5">
+        <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="loadLink">
+          <input
+            v-model="linkUrl"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            class="input flex-1 text-sm"
+            placeholder="https://gist.github.com/usuario/…"
+            aria-label="Enlace al banco"
+          />
+          <BaseButton type="submit" :loading="loadingLink" :disabled="!linkUrl.trim()">Cargar</BaseButton>
+        </form>
+        <p class="text-xs text-main-soft">
+          Pega el enlace de un <b>Gist secreto</b> de GitHub (o el botón «Raw» de un archivo). El banco se carga directamente en
+          este navegador, sin descargar archivos. Google Drive y Dropbox no lo permiten.
+        </p>
+        <p v-if="fileName && parsed" class="text-xs font-semibold text-matcha-700">Cargado: {{ fileName }}</p>
+      </div>
 
       <textarea
         v-else
